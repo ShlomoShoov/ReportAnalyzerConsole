@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics.Tracing;
 using System.IO;
+using System.Security.Cryptography;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
 
@@ -64,11 +65,12 @@ namespace Project
             string[] units = new string[ArrayLimit];
             ReportType[] types = new ReportType[ArrayLimit];
             int[] priorities = new int[ArrayLimit];
-            int[] scores = new int[ArrayLimit];
+            double[] scores = new double[ArrayLimit];
             Status[] statuses = new Status[ArrayLimit];
 
             int CountLines = ProcessReports(lines: lines, units: units, priorities:priorities ,types:types, scores:scores,statuses:statuses);
 
+            
             }
 
         // Loading and Valid the data
@@ -101,11 +103,11 @@ namespace Project
                 return data;
             }
 
-        static int ProcessReports(string[] lines, string[] units, ReportType[] types, int[] priorities, int[] scores, Status[] statuses)
+        static int ProcessReports(string[] lines, string[] units, ReportType[] types, int[] priorities, double[] scores, Status[] statuses)
             {
-            if (debugeMode) Console.WriteLine("Starting proccing.");
+            if (debugeMode) DisplayDebug("Starting proccing.");
 
-            int CountLines = 0;
+            int currentIndex = 0;
 
             for (int index = 0; index < lines.Length;  index++)
             {
@@ -117,25 +119,58 @@ namespace Project
                 string unit;
                 ReportType type;
                 int priority;
-                int score;
+                double score;
                 Status status;
 
                 if (debugeMode) Console.WriteLine($"Procces... line {index+1}/{lines.Length}");
 
+                // valid array not over the limit befor assiging
+                if (currentIndex+1 == ArrayLimit)
+                {
+                    DisplayError($"{ErrorMsg}File has more validable lines then the Memory Limit\n" +
+                        $"Array limit : {ArrayLimit} \n" +
+                        $"| notice that we enter and calaulate all valid lines until line {index+1}");
+                    break;
+                }
+
                 // validetions and parses
                 if (!ValidLineLength(line)) validLine = false;
                 if (!TryParsePriority(line[PriorityIndex], out priority)) validLine = false;
-                
+                if (!TryParseScore(line[ScoreIndex], out score)) validLine = false;
+                if (!TryParseStatus(line[StatusIndex], out status)) validLine = false;
+                if (!TryParseType(line[ReportTypeIndex], out type)) validLine = false;
+                unit = line[UnityIndex];
+
+                if (!validLine)
+                {
+                    if (debugeMode) DisplayWarning($"{WarningMsg}line {index + 1} invalid. not enter to procces");
+                    continue;
+                }
 
 
-                
+                // put data in the arrays
+                units[currentIndex] = unit;
+                priorities[currentIndex] = priority;
+                statuses[currentIndex] = status;
+                scores[currentIndex] = score;
+                types[currentIndex] = type;
+
+                currentIndex += 1;
+
 
             }
-            return CountLines;
+            int validRecords = currentIndex;
+            int invalidRecords = lines.Length - validRecords;
+            if (debugeMode)DisplayDebug($"Processing complete\n" +
+                $"Valid records: {validRecords}\r\n" +
+                $"Invalid records:{invalidRecords} \r\n" +
+                $"Stored {validRecords} valid records for analysis");
+            return validRecords;
             
 
             }
 
+        // validation functions
         static bool ValidLineLength(string[] line)
         {
             if (line.Length > ReportLenghth) {
@@ -150,50 +185,128 @@ namespace Project
             return true;
         }
 
+        static bool TryParseType(string typeStr, out ReportType type)
+        {
+            typeStr = typeStr.Trim();
+            if (!Enum.TryParse(typeStr, ignoreCase: true, out type))
+            {
+                if (debugeMode) DisplayWarning($"Invalid record: Unknown report type - {typeStr}");
+                return false;
+            }
+            return true;
+        }
+
+        static bool TryParseStatus(string statusStr, out Status status)
+        {
+            statusStr = statusStr.Trim();
+            if (!Enum.TryParse(statusStr, ignoreCase: true, out status))
+            {
+                if (debugeMode) DisplayWarning($"Invalid record: Unknown status  - {statusStr}");
+                return false;
+            }
+            return true;
+        }
+
+
 
         static bool TryParsePriority(string priority, out int validPriority)
-        {
-            validPriority = 0;
-            bool valid = int.TryParse(priority.Trim(), out int number);
-            if (!valid)
             {
-                if (debugeMode) DisplayWarning($"{WarningMsg}priority must be int, got :{priority}");
-                return false;
+                validPriority = 0;
+                bool valid = int.TryParse(priority.Trim(), out int number);
+                if (!valid)
+                {
+                    if (debugeMode) DisplayWarning($"priority must be int, got :{priority}");
+                    return false;
+                }
+                if (number > MaxPriority || number < MinPriority)
+                {
+                    if (debugeMode) DisplayWarning($"priority must be btewwen {MinPriority} to {MaxPriority} but got {number}");
+                    return false;
+                }
+                validPriority = number;
+                return true;
+
             }
-            if (number > MaxPriority || number < MinPriority)
+
+            static bool TryParseScore(string priority, out double validPriority)
             {
-                if (debugeMode) DisplayWarning($"{WarningMsg}priority must be btewwen {MinPriority} to {MaxPriority} but got {number}");
-                return false;
+                validPriority = 0;
+                bool valid = Double.TryParse(priority.Trim(), out double number);
+                if (!valid)
+                {
+                    if (debugeMode) DisplayWarning($"score must be double, got :{priority}");
+                    return false;
+                }
+                if (number > MaxScore || number < MinScore)
+                {
+                    if (debugeMode) DisplayWarning($"score must be btewwen {MinPriority} to {MaxPriority} but got {number}");
+                    return false;
+                }
+                validPriority = number;
+                return true;
+
             }
-            validPriority = number;
-            return true;
 
-        }
-
-        static void DisplayWarning (string msg)
+        // create report functions
+        static string CreateReport(string[] units, ReportType[] types, int[] priorities, double[] scores, Status[] statuses)
         {
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine(msg);
-            Console.ResetColor();
+            string report = "";
+            return report;
         }
 
-        static void DisplayError(string msg)
+
+        // calc statistics functions on score
+        static double CalculateAverage(double[] scores, int count)
         {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine(msg);
-            Console.ResetColor();
+            double sum = 0.0;
+            for (int index = 0; index < count; index++) sum += scores[index];
+            return sum / count;
+
         }
 
-        static void DisplayDebug(string msg)
+        static double FindMaxScore(double[] scores, int count)
         {
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine(msg);
-            Console.ResetColor();
+            double max = 0.0;
+            for (int index = 0; index < count; index++) if (scores[index]>max) max = scores[index];
+            return max;
+        }
+
+        static double FindMinScore(double[] scores, int count)
+        {
+            double min = 100.0;
+            for (int index = 0; index < count; index++) if (scores[index] < min) min = scores[index];
+            return min;
         }
 
 
 
 
+
+        // display functions
+        static void DisplayWarning(string msg)
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine(msg);
+                Console.ResetColor();
+            }
+
+            static void DisplayError(string msg)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine(msg);
+                Console.ResetColor();
+            }
+
+            static void DisplayDebug(string msg)
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine(msg);
+                Console.ResetColor();
+            }
+
+
+
+        
 
     }
 }

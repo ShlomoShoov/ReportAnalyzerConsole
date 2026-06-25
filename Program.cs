@@ -552,13 +552,13 @@ namespace Project
             if (!isValidPathFormat(path)) return false;
 
             string? fullPath = Path.GetPathRoot(path);
-            Console.WriteLine(fullPath);
+            
             if (!Path.Exists(fullPath))
             {
                 DisplayError($"{ErrorMsg} Path not exist: {path}");
                 return false;
             }
-            return false;
+            return true;
         }
         static bool isValidPathFormat(string path)
         {

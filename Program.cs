@@ -72,7 +72,7 @@ namespace Project
             Status[] statuses = new Status[ArrayLimit];
 
             int CountLines = ProcessReports(lines: lines, units: units, priorities:priorities ,types:types, scores:scores,statuses:statuses);
-            
+            string report = CreateAndDiplayReport(units, types, priorities, scores, statuses, CountLines);
 
 
 
@@ -261,9 +261,16 @@ namespace Project
             }
 
         // create report functions
-        static string CreateAndDiplayReport(string[] units, ReportType[] types, int[] priorities, double[] scores, Status[] statuses)
+        static string CreateAndDiplayReport(string[] units, ReportType[] types, int[] priorities, double[] scores, Status[] statuses, int actualLength)
         {
             string report = "";
+
+            report += DisplayBasicStatistics(scores, actualLength);
+            report += DisplayStatusCounts(statuses, actualLength);
+            report += DisplayTypeCounts(types, actualLength);
+            report += DisplayHighestPriorityApproved(units, types, priorities, scores, statuses, actualLength);
+            report += DisplayAverageByPriority(priorities, scores, actualLength);
+
             return report;
         }
 
@@ -316,7 +323,7 @@ namespace Project
             Double minScore = FindMinScore(scores, actualLength);
             string basicStatistics = $"=== Report Statistics ===\r\n" +
                                         $"Total Reports: {actualLength}\r\n" +
-                                        $"Average Score: {averageScore}\r\n" +
+                                        $"Average Score: {averageScore.ToString("F2")}\r\n" +
                                         $"Highest Score: {maxScore}\r\n" +
                                         $"Lowest Score: {minScore}\r\n";
             Console.WriteLine(basicStatistics);
@@ -359,10 +366,10 @@ namespace Project
         {
             int indexProirty = GetIndexHighestPriorityApproved(statuses, priorities, actualLength);
             string data;
-            if (indexProirty == -1) data = "There is no Approved Statuses in YOUR data.";
+            if (indexProirty == -1) data = "There is no Approved Statuses in YOUR data.\r\n";
             else data = GetFormatedLine(units, types, priorities, scores, statuses, indexProirty);
 
-            string highestPriorityApproved = $"=== Average Score by Priority ===\r\n" +
+            string highestPriorityApproved = $"=== Highest Priority Approved Report ===\r\n" +
                                              $"{data}";
             Console.WriteLine(highestPriorityApproved);
             return highestPriorityApproved;
@@ -375,12 +382,18 @@ namespace Project
             for (int index = 0; index<actualLength; index++)
             {
                 if (statuses[index] == Status.Approved &&
-                    priorities[index] > highestPrioirty) indexProirty = index;
+                    priorities[index] > highestPrioirty) 
+                {
+                    highestPrioirty = priorities[index];
+                    indexProirty = index;
+                }
             }
-            if (indexProirty is null)
+
+            if (indexProirty == null)
             {
                 return -1;
             }
+
             return (int)indexProirty;
         }
 
@@ -394,7 +407,48 @@ namespace Project
             
         }
 
-        
+        // === Average Score by Priority ===
+
+        static string DisplayAverageByPriority(int[] priorities, double[] scores, int actualLentgh)
+        {
+            string averageByPriority = $"=== Average Score by Priority ===\r\n";
+            for (int priority = 1; priority<=MaxPriority; priority++)
+            {
+                
+                averageByPriority += $"Priority {priority}:";
+
+                double? priorityAverage = GetAverageByPriority(priorities, scores, priority, actualLentgh);
+                if (priorityAverage is null) averageByPriority += "No reports\r\n";
+                else
+                {
+                    double doublePriorityAverage = (double)priorityAverage;
+                    averageByPriority += doublePriorityAverage.ToString("F2") + "\r\n";
+                }
+
+            }
+            Console.WriteLine(averageByPriority);
+            return averageByPriority;
+        }
+
+        static double? GetAverageByPriority(int[] priorities, double[] scores, int priority, int actualLentgh)
+        {
+            double sum = 0.0;
+            int cnt = 0;
+
+            for (int index = 0; index < actualLentgh; index++)
+            {
+                
+                if (priorities[index] == priority) 
+                {
+                    sum += scores[index];
+                    cnt++;
+                }
+            }
+            if (cnt == 0) return null;
+            return sum / cnt;
+        }
+
+
 
 
 

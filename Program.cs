@@ -1,6 +1,9 @@
 ﻿using System;
+using System.Diagnostics.Metrics;
 using System.Diagnostics.Tracing;
 using System.IO;
+using System.Reflection;
+using System.Runtime.Intrinsics.X86;
 using System.Security.Cryptography;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
@@ -69,8 +72,10 @@ namespace Project
             Status[] statuses = new Status[ArrayLimit];
 
             int CountLines = ProcessReports(lines: lines, units: units, priorities:priorities ,types:types, scores:scores,statuses:statuses);
-
             
+
+
+
             }
 
         // Loading and Valid the data
@@ -133,17 +138,25 @@ namespace Project
                     break;
                 }
 
+                // valid line length
+                if (!ValidLineLength(line))
+                {
+                    if (debugeMode) DisplayWarning($"{WarningMsg}unproccesable line: {index+1} not in a valid format, not enter into procces.");
+                    continue;
+                }
+                
+
                 // validetions and parses
-                if (!ValidLineLength(line)) validLine = false;
+
                 if (!TryParsePriority(line[PriorityIndex], out priority)) validLine = false;
                 if (!TryParseScore(line[ScoreIndex], out score)) validLine = false;
                 if (!TryParseStatus(line[StatusIndex], out status)) validLine = false;
                 if (!TryParseType(line[ReportTypeIndex], out type)) validLine = false;
-                unit = line[UnityIndex];
+                unit = line[UnityIndex].Trim();
 
                 if (!validLine)
                 {
-                    if (debugeMode) DisplayWarning($"{WarningMsg}line {index + 1} invalid. not enter to procces");
+                    if (debugeMode) DisplayWarning($"{WarningMsg}line {index + 1} invalid elemets. not enter to procces");
                     continue;
                 }
 
@@ -239,7 +252,7 @@ namespace Project
                 }
                 if (number > MaxScore || number < MinScore)
                 {
-                    if (debugeMode) DisplayWarning($"score must be btewwen {MinPriority} to {MaxPriority} but got {number}");
+                    if (debugeMode) DisplayWarning($"score must be btewwen {MinScore} to {MaxScore} but got {number}");
                     return false;
                 }
                 validPriority = number;
@@ -248,7 +261,7 @@ namespace Project
             }
 
         // create report functions
-        static string CreateReport(string[] units, ReportType[] types, int[] priorities, double[] scores, Status[] statuses)
+        static string CreateAndDiplayReport(string[] units, ReportType[] types, int[] priorities, double[] scores, Status[] statuses)
         {
             string report = "";
             return report;
@@ -278,6 +291,110 @@ namespace Project
             return min;
         }
 
+        static int CountByStatus(Status[] statuses, Status targetStatus, int count)
+        {
+            int cnt = 0;
+            for (int index = 0; index<count; index++)
+                if (statuses[index] == targetStatus) cnt += 1;
+            return cnt;
+        }
+
+        static int CountByType(ReportType[] types, ReportType targetType, int count)
+        {
+            int cnt = 0;
+            for (int index = 0; index<count; index++)
+                if (types[index] == targetType) cnt += 1;
+            return cnt;
+        }
+
+        // Repoets functions
+
+        static string DisplayBasicStatistics(Double[] scores, int actualLength)
+        {
+            Double averageScore = CalculateAverage(scores, actualLength);
+            Double maxScore = FindMaxScore(scores, actualLength);
+            Double minScore = FindMinScore(scores, actualLength);
+            string basicStatistics = $"=== Report Statistics ===\r\n" +
+                                        $"Total Reports: {actualLength}\r\n" +
+                                        $"Average Score: {averageScore}\r\n" +
+                                        $"Highest Score: {maxScore}\r\n" +
+                                        $"Lowest Score: {minScore}\r\n";
+            Console.WriteLine(basicStatistics);
+            return basicStatistics;
+         }
+
+        static string DisplayStatusCounts(Status[] statuses, int actualLength)
+        {
+            int pendigCnt = CountByStatus(statuses, Status.Pending, actualLength);
+            int approvedCnt = CountByStatus(statuses, Status.Approved, actualLength);
+            int rejectedCnt = CountByStatus(statuses, Status.Rejected, actualLength);
+
+            string statusCount = $"=== Reports by Status ===\r\n" +
+                $"Pending: {pendigCnt}\r\n" +
+                $"Approved: {approvedCnt}\r\n" +
+                $"Rejected: {rejectedCnt}\r\n";
+            Console.WriteLine(statusCount);
+            return statusCount;
+        }
+
+        static string DisplayTypeCounts(ReportType[] types, int actualLength)
+        {
+            int collectCnt = CountByType(types, ReportType.Collect, actualLength);
+            int analzeCnt = CountByType(types, ReportType.Analyze, actualLength);
+            int reconCnt = CountByType(types, ReportType.Recon, actualLength);
+            int intelCnt = CountByType(types, ReportType.Intel, actualLength);
+
+            string typeCounst = $"=== Reports by Type ===\r\n" +
+                                $"Collect: {collectCnt}\r\n" +
+                                $"Analyze: {analzeCnt}\r\n" +
+                                $"Recon: {reconCnt}\r\n" +
+                                $"Intel: {intelCnt}\r\n";
+            Console.WriteLine(typeCounst);
+            return typeCounst;
+
+        }
+
+        // HighestPriorityApproved
+        static string DisplayHighestPriorityApproved(string[] units, ReportType[] types, int[] priorities, double[] scores, Status[] statuses,int actualLength)
+        {
+            int indexProirty = GetIndexHighestPriorityApproved(statuses, priorities, actualLength);
+            string data;
+            if (indexProirty == -1) data = "There is no Approved Statuses in YOUR data.";
+            else data = GetFormatedLine(units, types, priorities, scores, statuses, indexProirty);
+
+            string highestPriorityApproved = $"=== Average Score by Priority ===\r\n" +
+                                             $"{data}";
+            Console.WriteLine(highestPriorityApproved);
+            return highestPriorityApproved;
+        }
+
+        static int GetIndexHighestPriorityApproved(Status[] statuses, int[] priorities, int actualLength)
+        {
+            int highestPrioirty = 0;
+            int? indexProirty = null;
+            for (int index = 0; index<actualLength; index++)
+            {
+                if (statuses[index] == Status.Approved &&
+                    priorities[index] > highestPrioirty) indexProirty = index;
+            }
+            if (indexProirty is null)
+            {
+                return -1;
+            }
+            return (int)indexProirty;
+        }
+
+        static string GetFormatedLine(string[] units, ReportType[] types, int[] priorities, double[] scores, Status[] statuses, int index)
+        {
+            string line = $"Unit: {units[index]}\r\n" +
+                            $"Type: {types[index]}\r\n" +
+                            $"Priority: {priorities[index]}\r\n" +
+                            $"Score: {scores[index]}\r\n";
+            return line;
+            
+        }
+
+        
 
 
 
@@ -290,14 +407,14 @@ namespace Project
                 Console.ResetColor();
             }
 
-            static void DisplayError(string msg)
+        static void DisplayError(string msg)
             {
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine(msg);
                 Console.ResetColor();
             }
 
-            static void DisplayDebug(string msg)
+        static void DisplayDebug(string msg)
             {
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine(msg);

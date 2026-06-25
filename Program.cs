@@ -5,6 +5,7 @@ using System.IO;
 using System.Reflection;
 using System.Runtime.Intrinsics.X86;
 using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
 
@@ -47,6 +48,7 @@ namespace Project
         const double MinScore = 0.0;
         const double MaxScore = 100.0;
 
+        const string defaultPath = @"C:\Users\user1\Desktop\studies\06_26\ReportAnalyzerConsole\reports.txt"; 
         static bool debugeMode = true; // if true: prints all data about proccing process.
         const string ErrorMsg = "=== Error ===\n";
         const string WarningMsg = "=== Warning ===\n";
@@ -55,15 +57,21 @@ namespace Project
         static void Main(string[] args)
         {
 
-            string path = @"C:\Users\user1\Desktop\studies\06_26\ReportAnalyzerConsole\reports.txt"; // contain the defult path to the file
+            string path;
+            string? outPath;
+
+            bool validArgs = ConfigSystem(args, out path, out outPath);
+            if (!validArgs) return;
+
             string[]? data = LoadFile(path: path);
 
             if (data is null) return;
-            RunApp(lines: data);
+            RunApp(lines: data, outPath);
         }
 
+
         // App flow function
-        static void RunApp(string[] lines)
+        static void RunApp(string[] lines, string? outPath)
             {
             string[] units = new string[ArrayLimit];
             ReportType[] types = new ReportType[ArrayLimit];
@@ -73,7 +81,7 @@ namespace Project
 
             int CountLines = ProcessReports(lines: lines, units: units, priorities:priorities ,types:types, scores:scores,statuses:statuses);
             string report = CreateAndDiplayReport(units, types, priorities, scores, statuses, CountLines);
-
+            if (outPath != null) SaveToFile(report, outPath);
 
 
             }
@@ -476,8 +484,97 @@ namespace Project
             }
 
 
+        // process flags and config system (extra)
 
-        
+        static bool ConfigSystem(string[] userConfig, out string path, out string? outputPath)
+        {
+            bool cofigertionCompleted = true; 
+            path = defaultPath;
+            outputPath = null;
+            for (int index = 0; index<userConfig.Length; index++ )
+            {
+                string flag = userConfig[index].Trim();
+                
+                switch (flag)
+                {
+                    case "-f":
+                        if (index + 1 < userConfig.Length)
+                        {
+                            path = userConfig[index + 1].Trim();
+
+                            index++;
+                        }
+                        else
+                        {
+                            DisplayError($"{ErrorMsg}flag '-f' was given but no file loction provieded after");
+                            cofigertionCompleted = false;
+                        }
+                        break;
+
+                    case "--debug":
+                        debugeMode = false;
+                        break;
+
+                    case "-o":
+                        if (index + 1 < userConfig.Length)
+                        {
+
+                            string givenPath = userConfig[index + 1].Trim();
+                            if (!IsValidPaht(givenPath))
+                            {
+                                cofigertionCompleted = false;
+                                
+                            }
+                            else outputPath = givenPath;
+                            index++;
+                        }
+                        else
+                        {
+                            DisplayError($"{ErrorMsg}flag '-o' was given but no file loction provieded after");
+                            cofigertionCompleted = false;
+                        }
+                        break;
+
+                    default:
+                        DisplayError($"{ErrorMsg}Unknown flag was given: {flag}");
+                        cofigertionCompleted = false;
+                        break;
+                }
+
+            }
+            if (!cofigertionCompleted) DisplayError($"Try again.");
+            return cofigertionCompleted;
+        }
+
+        static bool IsValidPaht(string path)
+        {
+
+            if (!isValidPathFormat(path)) return false;
+
+            string? fullPath = Path.GetPathRoot(path);
+            Console.WriteLine(fullPath);
+            if (!Path.Exists(fullPath))
+            {
+                DisplayError($"{ErrorMsg} Path not exist: {path}");
+                return false;
+            }
+            return false;
+        }
+        static bool isValidPathFormat(string path)
+        {
+           
+            string pattern = @"^([\w\-\:]+\\)*[\w\-]+\.[\w]+$";
+            
+            bool valid =  Regex.IsMatch(path, pattern);
+            if (!valid) DisplayError($"{ErrorMsg} file not a valid path : {path}");
+            return valid;
+        }
+
+        static void SaveToFile(string data, string filePath)
+        {
+            File.AppendAllText(path: filePath, contents: data);
+            
+        }
 
     }
 }

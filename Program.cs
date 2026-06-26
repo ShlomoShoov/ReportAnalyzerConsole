@@ -215,18 +215,19 @@ namespace Project
         static bool TryParseType(string typeStr, out ReportType type)
         {
             typeStr = typeStr.Trim();
-            if (!Enum.TryParse(typeStr, ignoreCase: true, out type))
+            if (!Enum.TryParse(typeStr, ignoreCase: true, out type) || ! Enum.IsDefined(type)) 
             {
                 if (debugeMode) DisplayWarning($"Invalid record: Unknown report type - {typeStr}");
                 return false;
             }
+            
             return true;
         }
 
         static bool TryParseStatus(string statusStr, out Status status)
         {
             statusStr = statusStr.Trim();
-            if (!Enum.TryParse(statusStr, ignoreCase: true, out status))
+            if (!Enum.TryParse(statusStr, ignoreCase: true, out status) || !Enum.IsDefined(status))
             {
                 if (debugeMode) DisplayWarning($"Invalid record: Unknown status  - {statusStr}");
                 return false;

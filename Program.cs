@@ -48,7 +48,7 @@ namespace Project
         const double MinScore = 0.0;
         const double MaxScore = 100.0;
 
-        const string defaultPath = @"C:\Users\user1\Desktop\studies\06_26\ReportAnalyzerConsole\reports.txt"; 
+        const string defaultPath = @"reports.txt"; 
         static bool debugeMode = true; // if true: prints all data about proccing process.
         const string ErrorMsg = "=== Error ===\n";
         const string WarningMsg = "=== Warning ===\n";
@@ -57,15 +57,15 @@ namespace Project
         static void Main(string[] args)
         {
 
-            string path;
+            string reportPath;
             string? outPath;
 
-            bool validArgs = ConfigSystem(args, out path, out outPath);
+            bool validArgs = ConfigSystem(args, out reportPath, out outPath);
             if (!validArgs) return;
 
-            string[]? data = LoadFile(path: path);
-
+            string[]? data = LoadFile(path: reportPath);
             if (data is null) return;
+
             RunApp(lines: data, outPath);
         }
 
@@ -92,10 +92,13 @@ namespace Project
 
             {
                 string fileName = Path.GetFileName(path);
+
+                if (!ValidPath(path)) return null; // check if the path (if given) exists.
+
                 if (!File.Exists(path: path))
                 {
 
-                    DisplayError($"{ErrorMsg}{fileName}>File not exists.");
+                    DisplayError($"Error: File {fileName} not found");
                     return null;
                 }
 
@@ -103,7 +106,7 @@ namespace Project
 
                 if (data.Length == 0)
                 {
-                    DisplayError($"{ErrorMsg}{fileName}>File is empty.");
+                    DisplayError($"Error: {fileName} File is empty.");
                     return null;
                 }
             if (debugeMode)
@@ -138,7 +141,7 @@ namespace Project
                 if (debugeMode) Console.WriteLine($"Procces... line {index+1}/{lines.Length}");
 
                 // valid array not over the limit befor assiging
-                if (currentIndex+1 == ArrayLimit)
+                if (currentIndex == ArrayLimit)
                 {
                     DisplayError($"{ErrorMsg}File has more validable lines then the Memory Limit\n" +
                         $"Array limit : {ArrayLimit} \n" +
@@ -160,7 +163,7 @@ namespace Project
                 if (!TryParseScore(line[ScoreIndex], out score)) validLine = false;
                 if (!TryParseStatus(line[StatusIndex], out status)) validLine = false;
                 if (!TryParseType(line[ReportTypeIndex], out type)) validLine = false;
-                unit = line[UnityIndex].Trim();
+                if (!TryParseUnit(line[UnityIndex], out unit)) validLine = false ;
 
                 if (!validLine)
                 {
@@ -194,13 +197,19 @@ namespace Project
         // validation functions
         static bool ValidLineLength(string[] line)
         {
-            if (line.Length > ReportLenghth) {
+            if (line.Length != ReportLenghth) {
                 if (debugeMode) DisplayWarning($"{WarningMsg}line contain {line.Length} columns , valid columns: {ReportLenghth} ");
                 return false;
             }
-            if (line.Length < ReportLenghth)
+            return true;
+        }
+
+        static bool TryParseUnit(string givenUnit, out string unit)
+        {
+            unit = givenUnit.Trim();
+            if (string.IsNullOrWhiteSpace(givenUnit))
             {
-                if (debugeMode) DisplayWarning($"{WarningMsg}line contain {line.Length} columns , valid columns: {ReportLenghth} ");
+                if (debugeMode) DisplayWarning($"{WarningMsg}Unit must be a string but got NOTHING.");
                 return false;
             }
             return true;
@@ -286,6 +295,8 @@ namespace Project
         // calc statistics functions on score
         static double CalculateAverage(double[] scores, int count)
         {
+            if (count == 0) return 0.0;
+
             double sum = 0.0;
             for (int index = 0; index < count; index++) sum += scores[index];
             return sum / count;
@@ -294,14 +305,14 @@ namespace Project
 
         static double FindMaxScore(double[] scores, int count)
         {
-            double max = 0.0;
+            double max = MinScore;
             for (int index = 0; index < count; index++) if (scores[index]>max) max = scores[index];
             return max;
         }
 
         static double FindMinScore(double[] scores, int count)
         {
-            double min = 100.0;
+            double min = MaxScore; 
             for (int index = 0; index < count; index++) if (scores[index] < min) min = scores[index];
             return min;
         }
@@ -484,7 +495,7 @@ namespace Project
             }
 
 
-        // process flags and config system (extra)
+        // (Extra) process flags and config system 
 
         static bool ConfigSystem(string[] userConfig, out string path, out string? outputPath)
         {
@@ -520,8 +531,9 @@ namespace Project
                         {
 
                             string givenPath = userConfig[index + 1].Trim();
-                            if (!IsValidPaht(givenPath))
+                            if (!ValidPath (givenPath))
                             {
+                                
                                 cofigertionCompleted = false;
                                 
                             }
@@ -542,37 +554,30 @@ namespace Project
                 }
 
             }
-            if (!cofigertionCompleted) DisplayError($"Try again.");
+            if (!cofigertionCompleted) DisplayError($"To see the valid option for flags look up in the readme.md file");
             return cofigertionCompleted;
         }
 
-        static bool IsValidPaht(string path)
+        static bool ValidPath(string path)
         {
-
-            if (!isValidPathFormat(path)) return false;
-
-            string? fullPath = Path.GetPathRoot(path);
             
-            if (!Path.Exists(fullPath))
+            
+            string? dictPath = Path.GetDirectoryName(path);
+            string fileName = Path.GetFileName(path);
+            
+            
+            if (!dictPath.IsWhiteSpace() && !Path.Exists(dictPath))
             {
-                DisplayError($"{ErrorMsg} Path not exist: {path}");
+                DisplayError($"{ErrorMsg} Path to file not exist: {dictPath}");
                 return false;
             }
-            return true;
-        }
-        static bool isValidPathFormat(string path)
-        {
            
-            string pattern = @"^([\w\-\:]+\\)*[\w\-]+\.[\w]+$";
-            
-            bool valid =  Regex.IsMatch(path, pattern);
-            if (!valid) DisplayError($"{ErrorMsg} file not a valid path : {path}");
-            return valid;
+            return true;
         }
 
         static void SaveToFile(string data, string filePath)
         {
-            File.AppendAllText(path: filePath, contents: data);
+            File.WriteAllText(path: filePath, contents: data);
             
         }
 

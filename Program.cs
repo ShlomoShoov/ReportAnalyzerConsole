@@ -1,12 +1,4 @@
 ﻿using System;
-using System.Diagnostics.Metrics;
-using System.Diagnostics.Tracing;
-using System.IO;
-using System.Reflection;
-using System.Runtime.Intrinsics.X86;
-using System.Security.Cryptography;
-using System.Text.RegularExpressions;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 
 namespace Project
@@ -43,7 +35,7 @@ namespace Project
         const int ArrayLimit = 100; // max lines to process
 
         const int MaxPriority = 5;
-        const int MinPriority = 0;
+        const int MinPriority = 1;
 
         const double MinScore = 0.0;
         const double MaxScore = 100.0;
@@ -79,8 +71,10 @@ namespace Project
             double[] scores = new double[ArrayLimit];
             Status[] statuses = new Status[ArrayLimit];
 
-            int CountLines = ProcessReports(lines: lines, units: units, priorities:priorities ,types:types, scores:scores,statuses:statuses);
-            string report = CreateAndDiplayReport(units, types, priorities, scores, statuses, CountLines);
+            int countLines = ProcessReports(lines: lines, units: units, priorities:priorities ,types:types, scores:scores,statuses:statuses);
+            if (countLines == 0) {DisplayError($"{ErrorMsg}No valid lines to procces. "); return;};
+
+            string report = CreateAndDiplayReport(units, types, priorities, scores, statuses, countLines);
             if (outPath != null) SaveToFile(report, outPath);
 
 
@@ -124,6 +118,7 @@ namespace Project
             if (debugeMode) DisplayDebug("Starting proccing.");
 
             int currentIndex = 0;
+            int invalidLines = 0;
 
             for (int index = 0; index < lines.Length;  index++)
             {
@@ -153,6 +148,7 @@ namespace Project
                 if (!ValidLineLength(line))
                 {
                     if (debugeMode) DisplayWarning($"{WarningMsg}unproccesable line: {index+1} not in a valid format, not enter into procces.");
+                    invalidLines++;
                     continue;
                 }
                 
@@ -168,6 +164,7 @@ namespace Project
                 if (!validLine)
                 {
                     if (debugeMode) DisplayWarning($"{WarningMsg}line {index + 1} invalid elemets. not enter to procces");
+                    invalidLines++;
                     continue;
                 }
 
@@ -179,16 +176,16 @@ namespace Project
                 scores[currentIndex] = score;
                 types[currentIndex] = type;
 
-                currentIndex += 1;
+                currentIndex++;
 
 
             }
             int validRecords = currentIndex;
-            int invalidRecords = lines.Length - validRecords;
+            int invalidRecords = invalidLines;
             if (debugeMode)DisplayDebug($"Processing complete\n" +
-                $"Valid records: {validRecords}\r\n" +
+                $"Valid records: {currentIndex}\r\n" +
                 $"Invalid records:{invalidRecords} \r\n" +
-                $"Stored {validRecords} valid records for analysis");
+                $"Stored {currentIndex} valid records for analysis");
             return validRecords;
             
 
@@ -207,7 +204,7 @@ namespace Project
         static bool TryParseUnit(string givenUnit, out string unit)
         {
             unit = givenUnit.Trim();
-            if (string.IsNullOrWhiteSpace(givenUnit))
+            if (string.IsNullOrWhiteSpace(unit))
             {
                 if (debugeMode) DisplayWarning($"{WarningMsg}Unit must be a string but got NOTHING.");
                 return false;
@@ -258,13 +255,13 @@ namespace Project
 
             }
 
-            static bool TryParseScore(string priority, out double validPriority)
+            static bool TryParseScore(string strScore, out double validScore)
             {
-                validPriority = 0;
-                bool valid = Double.TryParse(priority.Trim(), out double number);
+                validScore = 0;
+                bool valid = Double.TryParse(strScore.Trim(), out double number);
                 if (!valid)
                 {
-                    if (debugeMode) DisplayWarning($"score must be double, got :{priority}");
+                    if (debugeMode) DisplayWarning($"score must be double, got :{strScore}");
                     return false;
                 }
                 if (number > MaxScore || number < MinScore)
@@ -272,7 +269,7 @@ namespace Project
                     if (debugeMode) DisplayWarning($"score must be btewwen {MinScore} to {MaxScore} but got {number}");
                     return false;
                 }
-                validPriority = number;
+                validScore = number;
                 return true;
 
             }
@@ -305,14 +302,14 @@ namespace Project
 
         static double FindMaxScore(double[] scores, int count)
         {
-            double max = MinScore;
+            double max = scores[0];
             for (int index = 0; index < count; index++) if (scores[index]>max) max = scores[index];
             return max;
         }
 
         static double FindMinScore(double[] scores, int count)
         {
-            double min = MaxScore; 
+            double min = scores[0]; 
             for (int index = 0; index < count; index++) if (scores[index] < min) min = scores[index];
             return min;
         }
@@ -335,7 +332,7 @@ namespace Project
 
         // Repoets functions
 
-        static string DisplayBasicStatistics(Double[] scores, int actualLength)
+        static string DisplayBasicStatistics(double[] scores, int actualLength)
         {
             Double averageScore = CalculateAverage(scores, actualLength);
             Double maxScore = FindMaxScore(scores, actualLength);

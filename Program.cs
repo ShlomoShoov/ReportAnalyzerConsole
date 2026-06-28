@@ -103,12 +103,10 @@ namespace Project
                     DisplayError($"Error: {fileName} File is empty.");
                     return null;
                 }
-            if (debugeMode)
-            {
-  
+            
                 DisplayDebug($"File {fileName} loaded, {data.Length} lines found.");
                 
-            }
+            
 
                 return data;
             }
@@ -182,7 +180,7 @@ namespace Project
             }
             int validRecords = currentIndex;
             int invalidRecords = invalidLines;
-            if (debugeMode)DisplayDebug($"Processing complete\n" +
+            DisplayDebug($"Processing complete\n" +
                 $"Valid records: {currentIndex}\r\n" +
                 $"Invalid records:{invalidRecords} \r\n" +
                 $"Stored {currentIndex} valid records for analysis");
@@ -335,9 +333,9 @@ namespace Project
 
         static string DisplayBasicStatistics(double[] scores, int actualLength)
         {
-            Double averageScore = CalculateAverage(scores, actualLength);
-            Double maxScore = FindMaxScore(scores, actualLength);
-            Double minScore = FindMinScore(scores, actualLength);
+            double averageScore = CalculateAverage(scores, actualLength);
+            double maxScore = FindMaxScore(scores, actualLength);
+            double minScore = FindMinScore(scores, actualLength);
             string basicStatistics = $"=== Report Statistics ===\r\n" +
                                         $"Total Reports: {actualLength}\r\n" +
                                         $"Average Score: {averageScore.ToString("F2")}\r\n" +

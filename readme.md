@@ -9,7 +9,7 @@ In The project folder
 
 ### ***optinal flags***
 
-***add all flags after ---***
+***add all flags after --***
 
 ***`-f fileName`*** Change the source file
 
